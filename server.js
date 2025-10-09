@@ -86,31 +86,49 @@ app.post('/webhook/airtable', validateAirtableWebhook, async (req, res) => {
     // Vérifier que le token Goom est configuré
     if (!GOOM_GATEWAY_TOKEN) {
       console.error('❌ GOOM_GATEWAY_TOKEN non configuré');
-      return res.status(500).json({ 
-        error: 'Configuration manquante: GOOM_GATEWAY_TOKEN' 
+      return res.status(500).json({
+        error: 'Configuration manquante: GOOM_GATEWAY_TOKEN'
       });
     }
 
-    // Traiter les changements Airtable
+    // Support de deux formats: script Airtable simple ou webhook natif Airtable
+    let emailToProcess = null;
+
+    // Format 1: Script Airtable personnalisé qui envoie directement { email: "xxx" }
+    if (req.body.email && typeof req.body.email === 'string') {
+      console.log('📝 Format script Airtable détecté');
+      emailToProcess = req.body.email;
+
+      // Envoyer le webhook vers Goom
+      const goomResult = await sendToGoom(emailToProcess);
+
+      return res.status(200).json({
+        message: 'Webhook traité avec succès',
+        email: emailToProcess,
+        goomResult: goomResult
+      });
+    }
+
+    // Format 2: Webhook natif Airtable avec changedRecords
     const changedRecords = req.body.changedRecords || [];
     const results = [];
 
     for (const record of changedRecords) {
       console.log(`🔍 Traitement de l'enregistrement: ${record.id}`);
-      
+
       // Vérifier si le champ "Contrat abonnement signe" a été modifié et n'est plus vide
       const contractField = record.changedFields?.['Contrat abonnement signe'];
       const emailField = record.current?.fields?.['Email'];
-      
+
       if (contractField !== undefined && contractField !== null && contractField !== '') {
         console.log(`✅ Contrat signé détecté pour l'enregistrement ${record.id}`);
-        
+
         if (emailField) {
           console.log(`📧 Email trouvé: ${emailField}`);
-          
+
           // Envoyer le webhook vers Goom
           const goomResult = await sendToGoom(emailField);
-          
+
           results.push({
             recordId: record.id,
             email: emailField,
@@ -137,9 +155,9 @@ app.post('/webhook/airtable', validateAirtableWebhook, async (req, res) => {
 
   } catch (error) {
     console.error('❌ Erreur lors du traitement du webhook:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Erreur interne du serveur',
-      details: error.message 
+      details: error.message
     });
   }
 });
