@@ -164,12 +164,16 @@ app.post('/webhook/airtable', validateAirtableWebhook, async (req, res) => {
 
 // Route de test pour vérifier que l'API fonctionne
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
+  res.json({
+    status: 'OK',
     timestamp: new Date().toISOString(),
     goomConfigured: !!GOOM_GATEWAY_TOKEN
   });
 });
+
+// Route pour gérer les requêtes favicon (éviter les logs 404)
+app.get('/favicon.ico', (req, res) => res.status(204).end());
+app.get('/favicon.png', (req, res) => res.status(204).end());
 
 // Route de test pour tester l'envoi vers Goom
 app.post('/test/goom', async (req, res) => {
